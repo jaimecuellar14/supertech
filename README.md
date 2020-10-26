@@ -14,3 +14,6 @@ Los parametros a pasar al script son los siguientes:
 - Host destino
 - User destino
 - Pass destino
+- Proceso a realizar
+
+Ejemplo de ejecucion de script: `php -q index.php --originDB=supertech --originHost=localhost --originUser=root --originPass=" " --destinationDB=test --destinationHost=localhost --destinationUser=root --destinationPass=" " --process=create`
