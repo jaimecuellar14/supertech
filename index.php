@@ -9,13 +9,14 @@
         "destinationHost:",
         "destinationUser:",
         "destinationPass::",
-        "process:"
+        "process:",
+        "tableName:"
     );
     $data = getopt(" ",$values);
     checkParams($data);
   
     function checkParams($params){
-        if(count($params)!=9){
+        if(count($params)!=10){
             echo "Error en la ejecucion del script: Numero de parametros incorrectos";
         }else{
             echo "Iniciando el proceso:" . $params["process"];
@@ -39,7 +40,7 @@
          if($conn1["result"] AND $conn2["result"]){
              print_r("buena conexion ambos");
 
-             copyTable($conn2["pdo"]);
+             copyTable($conn2["pdo"],$data["process"],$data["destinationDB"],$data["tableName"]);
          }
          else{
              print_r("ERROR CONEXION");
@@ -80,18 +81,39 @@
         return array("result"=>((bool)$query->fetchColumn()), "pdo"=>$pdo);
     }
 
-    function copyTable($pdo){
-        $query = $pdo->prepare("CREATE TABLE test.usuarios LIKE supertech.usuarios");
+    function copyTable($pdo,$process,$db,$tabla){
+        if($process=="create"){
+            createTable($pdo,$db,$tabla);
+        }
+        elseif($process=="update"){
+            updateTable($pdo,$db,$tabla);
+        }
+        
+    }
+
+    function createTable($pdo,$db,$tabla){
+        $query = $pdo->prepare("CREATE TABLE $db.$tabla LIKE supertech.$tabla");
         if($query->execute()){
             print_r("works");
-            $queryCopy = $pdo->prepare("INSERT test.usuarios SELECT * FROM supertech.usuarios");
+            $queryCopy = $pdo->prepare("INSERT $db.$tabla SELECT * FROM supertech.$tabla");
             if($queryCopy->execute()){
                 print_r("COPIO DATOS DE TABLA");
             }else{
+                print_r($pdo->errorInfor());
                 print_r("NO SE PUDO HACER COPIA");
             }
         }else{
+            print_r($pdo->errorInfo());
             print_r("ERROR COPIA DE TABLA");
+        }
+    }
+    function updateTable($pdo,$db,$tabla){
+        $queryCopy = $pdo->prepare("INSERT INTO $db.$table SELECT * FROM supertech.$table");
+        if($queryCopy->execute()){
+            print_r("COPIO DATOS DE TABLA");
+        }else{
+            print_r($pdo->errorInfo());
+            print_r("NO SE PUDO HACER COPIA");
         }
     }
 ?>
