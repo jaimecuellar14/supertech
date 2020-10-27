@@ -63,7 +63,7 @@
         if($user["pass"]!=" "){
             $pdo = new PDO($host,$user["username"],$user["pass"]);
             return checkExistDB($pdo, $dbname);
-        }else{
+        }else{  
             try{
                 $pdo = new PDO($host,$user["username"]);
                 return checkExistDB($pdo, $dbname);
@@ -120,7 +120,7 @@
 
         $existeTabla = checkTableExist($pdoOrigen,$tablaOrigen);
         print_r($existeTabla);
-        if($existeTabla==1){
+        if($existeTabla==true){
             $query = $pdoDestino->prepare("CREATE TABLE $db.$tablaDestino LIKE supertech.$tablaOrigen");
             if($query->execute()){
                 $queryCopy = $pdoDestino->prepare("INSERT $db.$tablaDestino SELECT * FROM supertech.$tablaOrigen");
@@ -152,7 +152,7 @@
     // Luego se copia de la tabla origen
     function updateTable($pdoOrigen,$pdoDestino,$db,$tablaOrigen, $tablaDestino){
         $existeTabla = checkTableExist($pdoOrigen,$tablaOrigen);
-        if($existeTabla==1){
+        if($existeTabla==true){
             $queryTruncate = $pdoDestino->prepare("TRUNCATE TABLE $db.$tablaDestino");
             if($queryTruncate->execute()){
                 $queryCopy = $pdoDestino->prepare("INSERT INTO $db.$tablaDestino SELECT * FROM supertech.$tablaOrigen");
@@ -179,21 +179,14 @@
 
     // Funcion que verifica la existencia de la tabla a copiar.
     function checkTableExist($pdo,$tableName){
-        $query = $pdo->prepare("SHOW TABLES");
-        $query->execute();
-        $data = $query->fetchAll(PDO::FETCH_ASSOC);
-        $exists = 0;
-        foreach($data as $table){
-            foreach($table as $name){
-                if($name==$tableName){
-                    $exists =1;
-                    break 2;
-                }else{
-                    $exists = 0;
-                }
+        $query = $pdo->prepare("SELECT COUNT(*) FROM $tableName");
+        if($query->execute()){
+            if($query->fetch()>0){
+                return true;
+            }else{
+                return false;
             }
         }
-        return $exists;
 
     }
 ?>
