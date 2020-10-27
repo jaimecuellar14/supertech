@@ -12,18 +12,20 @@
         "destinationPass::",
         "process:",
         "originTableName:",
-        "destinationTableName:"
+        "destinationTableName:",
+        "campos::"
     );
 
     //Cogemos los parametros y los revisamos
     $data = getopt(" ",$values);
     checkParams($data);
-  
-
+    if(count($data)==12){
+        $data["campos"] = explode(",",$data["campos"]);
+    }
     //Funcion que revisa si el numero de parametros es correcto
     //Si es correcto intenta conectar a las BD.
     function checkParams($params){
-        if(count($params)!=11){
+        if(count($params)>12 || count($params)<11){
             echo "Error en la ejecucion del script: Numero de parametros incorrectos";
         }else{
             echo "Iniciando el proceso:" . $params["process"];
@@ -33,6 +35,7 @@
 
     //Se prueba la conexion de BD origen como BD destino
     function checkConnection($data){
+        print_r(count($data));
         $origenHost = "mysql:host={$data["originHost"]};dbname={$data["originDB"]}";
         $data["originPass"] != " " ? $originUser = array("username"=>$data["originUser"],"pass"=>$data["originPass"]) :
          $originUser = array("username"=>$data["originUser"],"pass"=>$data["originPass"]);
@@ -49,8 +52,12 @@
         //Si no mostramos un mensaje
         if($conn1["result"]==1 AND $conn2["result"]==1){
             print_r("buena conexion ambos");
-
-            copyTable($conn1["pdo"],$conn2["pdo"],$data["process"],$data["destinationDB"],$data["originTableName"],$data["destinationTableName"]);
+            if(count($data)==12){
+                $camposAnonimizar = explode(",",$data["campos"]);
+                copyTable($conn1["pdo"],$conn2["pdo"],$data["process"],$data["destinationDB"],$data["originDB"],$data["originTableName"],$data["destinationTableName"],$camposAnonimizar);
+            }else{
+                copyTable($conn1["pdo"],$conn2["pdo"],$data["process"],$data["destinationDB"],$data["originDB"],$data["originTableName"],$data["destinationTableName"],null);                
+            }
         }
         else{
             print_r("ERROR CONEXION EN ALGUNA DE LAS BD");
@@ -103,12 +110,12 @@
 
     // Funcion que se encarga de copiar la tabla especificada en los parametros
     // Toma asi mismo el proceso a realizar, crear o actualizar una tabla.
-    function copyTable($pdoOrigen,$pdoDestino,$process,$db,$tablaOrigen, $tablaDestino){
+    function copyTable($pdoOrigen,$pdoDestino,$process,$dbDestino,$dbOrigen,$tablaOrigen, $tablaDestino,$camposAnonimizar){
         if($process=="create"){
-            createTable($pdoOrigen,$pdoDestino,$db,$tablaOrigen, $tablaDestino);
+            createTable($pdoOrigen,$pdoDestino,$dbOrigen,$dbDestino,$tablaOrigen, $tablaDestino,$camposAnonimizar);
         }
         elseif($process=="update"){
-            updateTable($pdoOrigen,$pdoDestino,$db,$tablaOrigen,$tablaDestino);
+            updateTable($pdoOrigen,$pdoDestino,$dbOrigen,$dbDestino,$tablaOrigen,$tablaDestino,$camposAnonimizar);
         }
         
     }
@@ -116,16 +123,19 @@
 
     // Crea una tabla nueva en base a la tabla origen.
     // Y copia los datos de dicha tabla.
-    function createTable($pdoOrigen,$pdoDestino,$db,$tablaOrigen,$tablaDestino){
+    function createTable($pdoOrigen,$pdoDestino,$dbOrigen,$dbDestino,$tablaOrigen,$tablaDestino,$camposAnonimizar){
 
         $existeTabla = checkTableExist($pdoOrigen,$tablaOrigen);
         print_r($existeTabla);
         if($existeTabla==true){
-            $query = $pdoDestino->prepare("CREATE TABLE $db.$tablaDestino LIKE supertech.$tablaOrigen");
+            $query = $pdoDestino->prepare("CREATE TABLE $dbDestino.$tablaDestino LIKE $dbOrigen.$tablaOrigen");
             if($query->execute()){
-                $queryCopy = $pdoDestino->prepare("INSERT $db.$tablaDestino SELECT * FROM supertech.$tablaOrigen");
+                $queryCopy = $pdoDestino->prepare("INSERT $dbDestino.$tablaDestino SELECT * FROM $dbOrigen.$tablaOrigen");
                 if($queryCopy->execute()){
                     print_r("Se creo y se copiaron los datos con existo");
+                    if($camposAnonimizar!=null){
+                        anonFields($pdoOrigen,$camposAnonimizar,$dbDestino,$tablaDestino,$dbOrigen,$tablaOrigen);
+                    }
                     $pdoOrigen = null;
                     $pdoDestino = null;
                 }else{
@@ -150,14 +160,17 @@
     // Funcion para actualizar una tabla
     // Primero se trunca la tabla y se eliminan sus datos
     // Luego se copia de la tabla origen
-    function updateTable($pdoOrigen,$pdoDestino,$db,$tablaOrigen, $tablaDestino){
+    function updateTable($pdoOrigen,$pdoDestino,$dbOrigen,$dbDestino,$tablaOrigen, $tablaDestino,$camposAnonimizar){
         $existeTabla = checkTableExist($pdoOrigen,$tablaOrigen);
         if($existeTabla==true){
-            $queryTruncate = $pdoDestino->prepare("TRUNCATE TABLE $db.$tablaDestino");
+            $queryTruncate = $pdoDestino->prepare("TRUNCATE TABLE $dbDestino.$tablaDestino");
             if($queryTruncate->execute()){
-                $queryCopy = $pdoDestino->prepare("INSERT INTO $db.$tablaDestino SELECT * FROM supertech.$tablaOrigen");
+                $queryCopy = $pdoDestino->prepare("INSERT INTO $dbDestino.$tablaDestino SELECT * FROM $dbOrigen.$tablaOrigen");
                 if($queryCopy->execute()){
                     print_r("COPIA EXITOSA");
+                    if($camposAnonimizar!=null){
+                        anonFields($pdoOrigen,$camposAnonimizar,$dbDestino,$tablaDestino,$dbOrigen,$tablaOrigen);
+                    }
                     $pdoOrigen=null;
                     $pdoDestino=null;
                 }else{
@@ -189,4 +202,54 @@
         }
 
     }
+
+
+    // Funcion que se encarga de hacer la consulta de anonimizar los campos especificados.
+    function anonFields($pdo,$camposAnonimizar,$bdDestino,$tableDestino,$bdOrigen,$tablaOrigen){
+        if($camposAnonimizar!=null){
+            $stringAnon = checkFields($pdo,$camposAnonimizar,$bdOrigen,$tablaOrigen);
+            $stringAnon = substr_replace($stringAnon,"",-1);
+            print_r($stringAnon);
+            $queryAnon = $pdo->prepare("UPDATE $bdDestino.$tableDestino SET {$stringAnon}");
+            print_r($queryAnon);
+            if($queryAnon->execute()){
+                echo "Se anonimizaron algunos campos";
+            }else{
+                print_r($pdo->errorInfo());
+                echo "Error de anonimazion";
+            }
+        }
+
+    }
+
+
+    // Funcion que verifica la existencia de los campos que se quieren anonimizar
+    function checkFields($pdo,$camposAnonimizar,$bdOrigen,$tablaOrigen){
+        //$testArr = array("campo1","nombre","email");
+        $camposArr = array();
+        $columnsQuery = $pdo->prepare("SHOW COLUMNS FROM $bdOrigen.$tablaOrigen");
+        $columnsQuery->execute();
+        $campos = $columnsQuery->fetchAll(PDO::FETCH_ASSOC);
+        foreach($campos as $campo){
+            if(in_array($campo["Field"],$camposAnonimizar)){
+                array_push($camposArr,$campo["Field"]);
+            }
+        }
+        return generateAnonQuery($camposArr);
+        
+    }
+
+
+    // Funcion que genera el string a pasar a la consulta
+    function generateAnonQuery($camposArr){
+        $queryString="";
+        foreach($camposArr as $campo){
+            $anonField = md5($campo);
+            $queryString = "{$queryString}{$campo}='{$anonField}',";
+        }
+
+        return $queryString;
+    }
+
+    
 ?>
