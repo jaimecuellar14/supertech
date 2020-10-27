@@ -123,17 +123,22 @@
         if($existeTabla==1){
             $query = $pdoDestino->prepare("CREATE TABLE $db.$tablaDestino LIKE supertech.$tablaOrigen");
             if($query->execute()){
-                print_r("works");
                 $queryCopy = $pdoDestino->prepare("INSERT $db.$tablaDestino SELECT * FROM supertech.$tablaOrigen");
                 if($queryCopy->execute()){
-                    print_r("COPIO DATOS DE TABLA");
+                    print_r("Se creo y se copiaron los datos con existo");
+                    $pdoOrigen = null;
+                    $pdoDestino = null;
                 }else{
                     print_r($pdoDestino->errorInfor());
-                    print_r("NO SE PUDO HACER COPIA");
+                    print_r("Error en copiado de datos");
+                    $pdoOrigen = null;
+                    $pdoDestino = null;
                 }
             }else{
                 print_r($pdoDestino->errorInfo());
-                print_r("ERROR COPIA DE TABLA");
+                print_r("La tabla ya existe. Intente una actualizacion de la tabla.");
+                $pdoOrigen=null;
+                $pdoDestino=null;
             }
         }else{
             $pdoOrigen=null;
@@ -141,6 +146,10 @@
             echo "No existe la tabla que se quiere copiar";
         }
     }
+
+    // Funcion para actualizar una tabla
+    // Primero se trunca la tabla y se eliminan sus datos
+    // Luego se copia de la tabla origen
     function updateTable($pdoOrigen,$pdoDestino,$db,$tablaOrigen, $tablaDestino){
         $existeTabla = checkTableExist($pdoOrigen,$tablaOrigen);
         if($existeTabla==1){
@@ -149,13 +158,21 @@
                 $queryCopy = $pdoDestino->prepare("INSERT INTO $db.$tablaDestino SELECT * FROM supertech.$tablaOrigen");
                 if($queryCopy->execute()){
                     print_r("COPIA EXITOSA");
+                    $pdoOrigen=null;
+                    $pdoDestino=null;
                 }else{
                     print_r("No se pudo actualizar");
+                    $pdoOrigen=null;
+                    $pdoDestino=null;
                 }
             }else{
                 print_r("No se pudo truncar la tabla");
+                $pdoOrigen=null;
+                    $pdoDestino=null;
             }
-        }else{
+        }else{  
+            $pdoOrigen=null;
+            $pdoDestino=null;
             echo "No existe la tabla que se quiere copiar";
         }
     }
