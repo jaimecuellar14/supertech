@@ -144,18 +144,23 @@
     function updateTable($pdoOrigen,$pdoDestino,$db,$tablaOrigen, $tablaDestino){
         $existeTabla = checkTableExist($pdoOrigen,$tablaOrigen);
         if($existeTabla==1){
-            $queryCopy = $pdoDestino->prepare("INSERT INTO $db.$tablaDestino SELECT * FROM supertech.$tablaOrigen");
-            if($queryCopy->execute()){
-                print_r("COPIO DATOS DE TABLA");
+            $queryTruncate = $pdoDestino->prepare("TRUNCATE TABLE $db.$tablaDestino");
+            if($queryTruncate->execute()){
+                $queryCopy = $pdoDestino->prepare("INSERT INTO $db.$tablaDestino SELECT * FROM supertech.$tablaOrigen");
+                if($queryCopy->execute()){
+                    print_r("COPIA EXITOSA");
+                }else{
+                    print_r("No se pudo actualizar");
+                }
             }else{
-                print_r($pdoDestino->errorInfo());
-                print_r("NO SE PUDO HACER COPIA");
+                print_r("No se pudo truncar la tabla");
             }
         }else{
             echo "No existe la tabla que se quiere copiar";
         }
     }
 
+    // Funcion que verifica la existencia de la tabla a copiar.
     function checkTableExist($pdo,$tableName){
         $query = $pdo->prepare("SHOW TABLES");
         $query->execute();
