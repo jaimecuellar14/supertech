@@ -108,7 +108,7 @@
             createTable($pdoOrigen,$pdoDestino,$db,$tablaOrigen, $tablaDestino);
         }
         elseif($process=="update"){
-            updateTable($pdo,$db,$tabla,$tablaOrigen,$tablaDestino);
+            updateTable($pdoOrigen,$pdoDestino,$db,$tablaOrigen,$tablaDestino);
         }
         
     }
@@ -141,13 +141,18 @@
             echo "No existe la tabla que se quiere copiar";
         }
     }
-    function updateTable($pdo,$db,$tablaOrigen, $tablaDestino){
-        $queryCopy = $pdo->prepare("INSERT INTO $db.$tablaDestino SELECT * FROM supertech.$tablaOrigen");
-        if($queryCopy->execute()){
-            print_r("COPIO DATOS DE TABLA");
+    function updateTable($pdoOrigen,$pdoDestino,$db,$tablaOrigen, $tablaDestino){
+        $existeTabla = checkTableExist($pdoOrigen,$tablaOrigen);
+        if($existeTabla==1){
+            $queryCopy = $pdoDestino->prepare("INSERT INTO $db.$tablaDestino SELECT * FROM supertech.$tablaOrigen");
+            if($queryCopy->execute()){
+                print_r("COPIO DATOS DE TABLA");
+            }else{
+                print_r($pdoDestino->errorInfo());
+                print_r("NO SE PUDO HACER COPIA");
+            }
         }else{
-            print_r($pdo->errorInfo());
-            print_r("NO SE PUDO HACER COPIA");
+            echo "No existe la tabla que se quiere copiar";
         }
     }
 
